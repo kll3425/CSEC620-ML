@@ -8,9 +8,14 @@ def load_data(filepath):
     messages = []
     with open(filepath, 'r', encoding='utf-8') as file:
         for line in file:
-            label, message = line.split(' ', 1)  # split label (ham or spam) and message
-            labels.append(label)
-            messages.append(message.strip().lower())  # convert message to lowercase
+            try:
+                parts = line.strip().split('\t', 1)  # split on tab character
+                if len(parts) == 2:
+                    label, message = parts
+                    labels.append(label)
+                    messages.append(message.lower())  # convert message to lowercase
+            except Exception as e:
+                continue
     return labels, messages
 
 # tokenize a message into words
@@ -67,7 +72,7 @@ def predict_naive_bayes(message, p_spam, p_ham, spam_word_counts, ham_word_count
 
 if __name__ == "__main__":
     # load dataset
-    filepath = 'SMSSpamCollection'
+    filepath = './assignment_01/SMSSpamCollection'
     labels, messages = load_data(filepath)
     
     # split dataset into training (80%) and testing (20%)
