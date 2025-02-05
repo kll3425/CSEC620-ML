@@ -1,0 +1,106 @@
+import numpy as np
+import re
+from collections import defaultdict
+
+# load the SMS dataset from file
+def load_data(filepath):
+    labels = []
+    messages = []
+    with open(filepath, 'r', encoding='utf-8') as file:
+        for line in file:
+            label, message = line.split(' ', 1)  # split label (ham or spam) and message
+            labels.append(label)
+            messages.append(message.strip().lower())  # convert message to lowercase
+    return labels, messages
+
+# tokenize a message into words
+def tokenize(message):
+    return re.findall(r'\b\w+\b', message)  # extract words using regex
+
+# Function to train the Naive-Bayes classifier
+def train_naive_bayes(labels, messages):
+    spam_count = labels.count('spam')  # count spam messages
+    ham_count = labels.count('ham')  # count ham messages
+    total_count = len(labels)  # total number of messages
+    
+    p_spam = spam_count / total_count  # prior probability of spam
+    p_ham = ham_count / total_count  # prior probability of ham
+    
+    spam_words = []
+    ham_words = []
+    
+    # tokenize messages and separate words into lists
+    for label, message in zip(labels, messages):
+        words = tokenize(message)
+        if label == 'spam':
+            spam_words.extend(words)
+        else:
+            ham_words.extend(words)
+    
+    # init word frequency counts with Laplace smoothing
+    spam_word_counts = defaultdict(lambda: 1)
+    ham_word_counts = defaultdict(lambda: 1)
+    
+    for word in spam_words:
+        spam_word_counts[word] += 1
+    for word in ham_words:
+        ham_word_counts[word] += 1
+    
+    total_spam_words = sum(spam_word_counts.values())  # total words in spam messages
+    total_ham_words = sum(ham_word_counts.values())  # total words in ham messages
+    
+    return p_spam, p_ham, spam_word_counts, ham_word_counts, total_spam_words, total_ham_words
+
+# predict if a message is spam or ham using Naive Bayes
+def predict_naive_bayes(message, p_spam, p_ham, spam_word_counts, ham_word_counts, total_spam_words, total_ham_words):
+    words = tokenize(message)
+    
+    # log probabilities to prevent underflow (ChatGPT)
+    spam_prob = np.log(p_spam)
+    ham_prob = np.log(p_ham)
+    
+    for word in words:
+        spam_prob += np.log(spam_word_counts[word] / total_spam_words)
+        ham_prob += np.log(ham_word_counts[word] / total_ham_words)
+    
+    return 'spam' if spam_prob > ham_prob else 'ham'
+
+if __name__ == "__main__":
+    # load dataset
+    filepath = 'SMSSpamCollection'
+    labels, messages = load_data(filepath)
+    
+    # split dataset into training (80%) and testing (20%)
+    split_index = int(0.8 * len(labels))
+    train_labels, test_labels = labels[:split_index], labels[split_index:]
+    train_messages, test_messages = messages[:split_index], messages[split_index:]
+    
+    # train Naive Bayes classifier
+    p_spam, p_ham, spam_word_counts, ham_word_counts, total_spam_words, total_ham_words = train_naive_bayes(train_labels, train_messages)
+    
+    # init classification counts
+    TP, FP, TN, FN = 0, 0, 0, 0
+    
+    # evaluate model
+    for label, message in zip(test_labels, test_messages):
+        prediction = predict_naive_bayes(message, p_spam, p_ham, spam_word_counts, ham_word_counts, total_spam_words, total_ham_words)
+        
+        if prediction == 'spam' and label == 'spam':
+            TP += 1  # true Positive
+        elif prediction == 'spam' and label == 'ham':
+            FP += 1  # false Positive
+        elif prediction == 'ham' and label == 'ham':
+            TN += 1  # true Negative
+        elif prediction == 'ham' and label == 'spam':
+            FN += 1  # false Negative
+    
+    # calculate performance metrics
+    accuracy = (TP + TN) / (TP + FP + TN + FN)
+    precision = TP / (TP + FP) if (TP + FP) != 0 else 0
+    recall = TP / (TP + FN) if (TP + FN) != 0 else 0
+    f1_score = (2 * precision * recall) / (precision + recall) if (precision + recall) != 0 else 0
+    
+    print(f'Accuracy: {accuracy:.4f}')
+    print(f'Precision: {precision:.4f}')
+    print(f'Recall: {recall:.4f}')
+    print(f'F1 Score: {f1_score:.4f}')
