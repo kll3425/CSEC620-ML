@@ -15,7 +15,7 @@ def load_data(filepath):
                     labels.append(label)
                     messages.append(message.lower())  # convert message to lowercase
             except Exception as e:
-                continue
+                print(f"An error occurred: {e}")
     return labels, messages
 
 # tokenize a message into words
@@ -42,7 +42,7 @@ def train_naive_bayes(labels, messages):
         else:
             ham_words.extend(words)
     
-    # init word frequency counts with Laplace smoothing
+    # init word frequency counts with Laplace smoothing (ChatGPT)
     spam_word_counts = defaultdict(lambda: 1)
     ham_word_counts = defaultdict(lambda: 1)
     
@@ -91,13 +91,13 @@ if __name__ == "__main__":
         prediction = predict_naive_bayes(message, p_spam, p_ham, spam_word_counts, ham_word_counts, total_spam_words, total_ham_words)
         
         if prediction == 'spam' and label == 'spam':
-            TP += 1  # true Positive
+            TP += 1  # true positive
         elif prediction == 'spam' and label == 'ham':
-            FP += 1  # false Positive
+            FP += 1  # false positive
         elif prediction == 'ham' and label == 'ham':
-            TN += 1  # true Negative
+            TN += 1  # true negative
         elif prediction == 'ham' and label == 'spam':
-            FN += 1  # false Negative
+            FN += 1  # false negative
     
     # calculate performance metrics
     accuracy = (TP + TN) / (TP + FP + TN + FN)
