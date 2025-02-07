@@ -8,6 +8,3 @@ You and your team will develop two SMS spam classifiers using:
 ● Multinomial Naive Bayes (usually just “Naive Bayes”).
 
 You are NOT allowed to use any third-party libraries (e.g. scikit-learn, etc.) to implement the classifiers.
-
---------------------------------------------------------------------------------------------------------------------------------------------------
-Assignment 02:
