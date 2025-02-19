@@ -15,9 +15,9 @@ import matplotlib.pyplot as plt
 
 # Load the data from the .npy files (path may need to be changed)
 def load_npy_data():
-    training_data_normal = np.load('CSEC620-ML/assignment_02/training_normal.npy')
-    testing_data_attack = np.load('CSEC620-ML/assignment_02/testing_attack.npy')
-    testing_data_normal = np.load('CSEC620-ML/assignment_02/testing_normal.npy')
+    training_data_normal = np.load('./assignment_02/training_normal.npy')
+    testing_data_attack = np.load('./assignment_02/testing_attack.npy')
+    testing_data_normal = np.load('./assignment_02/testing_normal.npy')
     return training_data_normal, testing_data_attack, testing_data_normal
 
 # Show the size of the data
