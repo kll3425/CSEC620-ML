@@ -15,9 +15,9 @@ import matplotlib.pyplot as plt
 
 # Load the data from the .npy files (path may need to be changed)
 def load_npy_data():
-    training_data_normal = np.load('./assignment_02/training_normal.npy')
-    testing_data_attack = np.load('./assignment_02/testing_attack.npy')
-    testing_data_normal = np.load('./assignment_02/testing_normal.npy')
+    training_data_normal = np.load('./CSEC620-ML/assignment_02/training_normal.npy')
+    testing_data_attack = np.load('./CSEC620-ML/assignment_02/testing_attack.npy')
+    testing_data_normal = np.load('./CSEC620-ML/assignment_02/testing_normal.npy')
     return training_data_normal, testing_data_attack, testing_data_normal
 
 # Show the size of the data
@@ -33,13 +33,13 @@ def get_performance_metric(predicted_labels, actual_labels):
     TN = 0
     FN = 0
     for i in range(len(predicted_labels)):
-        if predicted_labels[i] == 'attack' and actual_labels[i] == 'attack':
+        if predicted_labels[i] == 1 and actual_labels[i] == 1:
             TP += 1
-        elif predicted_labels[i] == 'attack' and actual_labels[i] == 'normal':
+        elif predicted_labels[i] == 1 and actual_labels[i] == 0:
             FP += 1
-        elif predicted_labels[i] == 'normal' and actual_labels[i] == 'normal':
+        elif predicted_labels[i] == 0 and actual_labels[i] == 0:
             TN += 1
-        elif predicted_labels[i] == 'normal' and actual_labels[i] == 'attack':
+        elif predicted_labels[i] == 0 and actual_labels[i] == 1:
             FN += 1
     accuracy = (TP + TN) / (TP + FP + TN + FN)
     TPR = TP / (FN + TP)
@@ -75,6 +75,7 @@ def cluster_data(cluster_centroids, data):
 
 def cluster_data_classify(cluster_centroids, data, threshold=0.5):
     classify_points = [[] for i in range(2)]
+    point_and_prediction = [[] for i in range(2)]
     for point in data:
         min_distance = np.linalg.norm(point - cluster_centroids[0])
         closest_cluster = 0
@@ -87,9 +88,13 @@ def cluster_data_classify(cluster_centroids, data, threshold=0.5):
         # Index 0 is normal, index 1 is attack
         if min_distance < threshold:
             classify_points[0].append(point)
+            point_and_prediction[0].append(point)
+            point_and_prediction[1].append(0)
         else:
             classify_points[1].append(point)
-    return classify_points
+            point_and_prediction[0].append(point)
+            point_and_prediction[1].append(1)
+    return classify_points, point_and_prediction
 
 def k_means(training_data, k=1, max_iterations=100):
     # Initialize the cluster centroids
@@ -162,7 +167,7 @@ def run_k_means_classifier(training_data, testing_data, testing_labels, threshol
         print(f"Cluster {i+1}: {cluster_centroids[i]}")
 
     # Cluster the testing data using the updated cluster centroids
-    predicted_points = cluster_data_classify(cluster_centroids, testing_data_projected, threshold)
+    predicted_points, point_and_prediction = cluster_data_classify(cluster_centroids, testing_data_projected, threshold)
 
     # Create subplots to show the clustered data and the testing labels
     fig, axs = plt.subplots(1, 2, figsize=(12, 6))
@@ -192,6 +197,13 @@ def run_k_means_classifier(training_data, testing_data, testing_labels, threshol
     axs[1].set_ylabel('Second Principal Component')
     axs[1].set_title('Labeled Testing Data')
     axs[1].legend()
+
+    # Get performance metrics
+    accuracy, TPR, FPR, F1 = get_performance_metric(point_and_prediction[1], testing_labels)
+    print("Accuracy: ", accuracy)
+    print("TPR: ", TPR)
+    print("FPR: ", FPR)
+    print("F1 Score: ", F1)
 
     # Show the plot
     plt.show()
