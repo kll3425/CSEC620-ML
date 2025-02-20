@@ -1,14 +1,16 @@
 import numpy as np
+from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
-#Below libraries of sklearn are just to VERIFY performance.
+
+# TODO: Delete - below libraries of sklearn are just to VERIFY performance.
 from sklearn.cluster import DBSCAN
-#from sklearn.datasets.samples_generator import make_blobs
+# from sklearn.datasets.samples_generator import make_blobs
 
 # Load the data from the .npy files (path may need to be changed)
 def load_npy_data():
-    training_data_normal = np.load('training_normal.npy')
-    testing_data_attack = np.load('testing_attack.npy')
-    testing_data_normal = np.load('testing_normal.npy')
+    training_data_normal = np.load('./CSEC620-ML/assignment_02/training_normal.npy')
+    testing_data_attack = np.load('./CSEC620-ML/assignment_02/testing_attack.npy')
+    testing_data_normal = np.load('./CSEC620-ML/assignment_02/testing_normal.npy')
     return training_data_normal, testing_data_attack, testing_data_normal
 
 # Get accuracy, TPR, FPR, and F1 score
@@ -18,105 +20,136 @@ def get_performance_metric(predicted_labels, actual_labels):
     TN = 0
     FN = 0
     for i in range(len(predicted_labels)):
-        if predicted_labels[i] == 'attack' and actual_labels[i] == 'attack':
+        if predicted_labels[i] == 1 and actual_labels[i] == 1:
             TP += 1
-        elif predicted_labels[i] == 'attack' and actual_labels[i] == 'normal':
+        elif predicted_labels[i] == 1 and actual_labels[i] == 0:
             FP += 1
-        elif predicted_labels[i] == 'normal' and actual_labels[i] == 'normal':
+        elif predicted_labels[i] == 0 and actual_labels[i] == 0:
             TN += 1
-        elif predicted_labels[i] == 'normal' and actual_labels[i] == 'attack':
+        elif predicted_labels[i] == 0 and actual_labels[i] == 1:
             FN += 1
-    accuracy = (TP + TN) / (TP + FP + TN + FN)
-    TPR = TP / (FN + TP)
-    FPR = FP / (TN + FP)
-    F1 = 2 * TP / (2 * TP + FP + FN)
+    accuracy = (TP + TN) / (TP + FP + TN + FN) if (TP + FP + TN + FN) > 0 else 0
+    TPR = TP / (FN + TP) if (FN + TP) > 0 else 0
+    FPR = FP / (TN + FP) if (TN + FP) > 0 else 0
+    F1 = 2 * TP / (2 * TP + FP + FN) if (2 * TP + FP + FN) > 0 else 0
     return accuracy, TPR, FPR, F1
 
-def euclidean_distance(p1, p2):
-    return np.sqrt(np.sum((p1 - p2) ** 2))
+def region_query(data, point_index, epsilon):
+    distances = np.linalg.norm(data - data[point_index], axis=1)
+    return np.where(distances <= epsilon)[0]
 
-def region_query(data, point_idx, epsilon):
-    neighbors = []
-    for i in range(len(data)):
-        if euclidean_distance(data[point_idx], data[i]) <= epsilon:
-            neighbors.append(i)
-    return neighbors
-
-def dbscan(data, epsilon, min_points):
-    labels = [-1] * len(data)  # -1 means unclassified
+""" ChatGPT was used to optimize the loops in the original fit function """
+def dbscan_fit(training_data, epsilon=0.1, min_pts=4):
+    n = len(training_data)
+    cluster_labels = np.full(n, -1)  # -1 means noise, will be updated with cluster numbers
+    visited = np.zeros(n, dtype=bool)
     cluster_id = 0
-    core_points = set()
-    
-    for i in range(len(data)):
-        if labels[i] != -1:
+
+    for point_index in range(n):
+        if visited[point_index]:
             continue
         
-        neighbors = region_query(data, i, epsilon)
+        visited[point_index] = True
+        neighbors = region_query(training_data, point_index, epsilon)
+
+        if len(neighbors) < min_pts:
+            cluster_labels[point_index] = -1  # Noise
+            continue
         
-        if len(neighbors) < min_points:
-            labels[i] = -2  # Mark as noise
-        else:
-            core_points.add(tuple(data[i]))
-            cluster_id += 1
-            labels[i] = cluster_id
-            expand_cluster(data, labels, neighbors, cluster_id, epsilon, min_points, core_points)
-    
-    return labels, core_points
+        # Start a new cluster
+        cluster_labels[point_index] = cluster_id
+        queue = set(neighbors.tolist())  # Using set to avoid duplicate insertions
 
-def expand_cluster(data, labels, neighbors, cluster_id, epsilon, min_points, core_points):
-    i = 0
-    while i < len(neighbors):
-        point_idx = neighbors[i]
-        if labels[point_idx] == -2:  # Previously marked as noise, now part of cluster
-            labels[point_idx] = cluster_id
-        if labels[point_idx] == -1:  # Unclassified
-            labels[point_idx] = cluster_id
-            new_neighbors = region_query(data, point_idx, epsilon)
-            if len(new_neighbors) >= min_points:
-                core_points.add(tuple(data[point_idx]))
-                neighbors += new_neighbors
-        i += 1
+        while queue:
+            neighbor_index = queue.pop()
+            if not visited[neighbor_index]:
+                visited[neighbor_index] = True
+                new_neighbors = region_query(training_data, neighbor_index, epsilon)
+                if len(new_neighbors) >= min_pts:
+                    queue.update(new_neighbors.tolist())
 
-def classify_samples(test_data, core_points, epsilon):
-    classifications = []
-    for sample in test_data:
-        is_normal = any(euclidean_distance(sample, np.array(core_point)) <= epsilon for core_point in core_points)
-        classifications.append("Normal" if is_normal else "Anomalous")
-    return classifications
+            # Assign the neighbor to the current cluster if it's unclassified
+            if cluster_labels[neighbor_index] == -1:
+                cluster_labels[neighbor_index] = cluster_id
 
-# def main():
-    
-#     training_data_normal, testing_data_attack, testing_data_normal = load_npy_data()
+        cluster_id += 1  # Move to the next cluster
 
-#     # Concatenate the testing data and generate labels (1 for attack, 0 for normal)
-#     testing_data = np.concatenate((testing_data_attack, testing_data_normal))
-#     testing_labels = np.concatenate((np.ones(len(testing_data_attack)), np.zeros(len(testing_data_normal))))
+    return cluster_labels
 
-#     labels, core_points = dbscan(training_data, epsilon, min_points)
-#     classifications = classify_samples(testing_data, core_points, epsilon)
+def near_core_point(core_points, test_point, epsilon):
+    # Return if the test point is within epsilon of a core point
+    distances = np.linalg.norm(core_points - test_point, axis=1)
+    return np.any(distances <= epsilon)
 
-#     dbscan(training_data_normal, testing_data, testing_labels, threshold=0.1, k=4)
+def run_dbscan(training_data, testing_data, testing_labels, epsilon=0.05, num_neighbors=4):
+    # Use PCA to reduce the dimensionality of the data to the specified number of dimension
+    pca = PCA(n_components=2)
 
-#     print("Core Points:", core_points)
-#     print("Classifications:", classifications)
-    
-# centers = [[1, 1], [-1, -1], [1, -1]]
-# X, labels_true = make_blobs(n_samples=750, centers=centers, cluster_std=0.4,
-#                             random_state=0)
+    # Fit the PCA model to the training data and project the training data onto n principal components
+    training_data_projected = pca.fit_transform(training_data)
 
-# X = StandardScaler().fit_transform(X)    
-    
-# plt.scatter(X[:,0], X[:,1]) #Our original data - unclustered
+    # Project the testing data to the same number of dimensions as the training data
+    testing_data_projected = pca.transform(testing_data)
 
-# own_labels = own_dbscan(X,0.3,10)
+    # Fit DBScan on training data
+    cluster_labels = dbscan_fit(training_data_projected, epsilon, num_neighbors)
 
-# plt.scatter(X[:,0], X[:,1], marker='o', s=14, c=own_labels, cmap='rainbow')
+    # Classify testing points based on core points
+    core_points = training_data_projected[cluster_labels != -1]
 
-# db = DBSCAN(eps=0.3, min_samples=10).fit(X)
-# sklearn_labels = db.labels_
+    # Classify the testing points
+    predicted_labels = np.array([0 if near_core_point(core_points, test_point, epsilon) else 1 for test_point in testing_data_projected])
 
+    # Get the performance metrics
+    accuracy, TPR, FPR, F1 = get_performance_metric(predicted_labels, testing_labels)
 
-# plt.scatter(X[:,0], X[:,1], marker='o', s=14, c=sklearn_labels, cmap='rainbow')    
-    
-# if __name__ == "__main__":
-#     main()
+    # Print the performance metrics
+    print("Accuracy: ", accuracy)
+    print("True Positive Rate: ", TPR)
+    print("False Positive Rate: ", FPR)
+    print("F1 Score: ", F1)
+
+    # Create subplots to show the predicted labels and the actual labels
+    fig, axs = plt.subplots(1, 2, figsize=(12, 6))
+
+    # Create labels for the data points
+    labels = ['Normal', 'Attack']
+    colors = ['blue', 'red']
+
+    # Plot the testing data with the predicted labels
+    predicted_points = [testing_data_projected[np.where(predicted_labels == 0)], testing_data_projected[np.where(predicted_labels == 1)]]
+    for i in range(2):
+        axs[0].scatter(predicted_points[i][:, 0], predicted_points[i][:, 1], label=labels[i], color=colors[i])
+
+    # Plot the testing data with the actual labels
+    actual_points = [testing_data_projected[np.where(testing_labels == 0)], testing_data_projected[np.where(testing_labels == 1)]]
+    for i in range(2):
+        axs[1].scatter(actual_points[i][:, 0], actual_points[i][:, 1], label=labels[i], color=colors[i])
+
+    # Set the titles and labels for the subplots
+    axs[0].set_title('Predicted Labels')
+    axs[0].set_xlabel('Principal Component 1')
+    axs[0].set_ylabel('Principal Component 2')
+    axs[0].legend()
+
+    axs[1].set_title('Actual Labels')
+    axs[1].set_xlabel('Principal Component 1')
+    axs[1].set_ylabel('Principal Component 2')
+    axs[1].legend()
+
+    # Show the plots
+    plt.show()
+
+def main():
+    # Get the data
+    training_data_normal, testing_data_attack, testing_data_normal = load_npy_data()
+
+    # Concatenate the testing data and generate labels (1 for attack, 0 for normal)
+    testing_data = np.concatenate((testing_data_attack[:500], testing_data_normal[:500]))
+    testing_labels = np.concatenate((np.ones(len(testing_data_attack[:500])), np.zeros(len(testing_data_normal[:500]))))
+
+    # DBScan is only run on a subset of the data as the algorithm is slow
+    run_dbscan(training_data_normal[:1000], testing_data, testing_labels, epsilon=0.015, num_neighbors=3)
+
+if __name__ == "__main__":
+    main()
