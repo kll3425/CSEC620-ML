@@ -3,9 +3,9 @@ from sklearn.decomposition import PCA
 
 # Load the data from the .npy files (path may need to be changed)
 def load_npy_data():
-    training_data_normal = np.load('./assignment_02/training_normal.npy')
-    testing_data_attack = np.load('./assignment_02/testing_attack.npy')
-    testing_data_normal = np.load('./assignment_02/testing_normal.npy')
+    training_data_normal = np.load('./CSEC620-ML/assignment_02/training_normal.npy')
+    testing_data_attack = np.load('./CSEC620-ML/assignment_02/testing_attack.npy')
+    testing_data_normal = np.load('./CSEC620-ML/assignment_02/testing_normal.npy')
     return training_data_normal, testing_data_attack, testing_data_normal
 
 # Show the size of the data
@@ -21,13 +21,13 @@ def get_performance_metric(predicted_labels, actual_labels):
     TN = 0
     FN = 0
     for i in range(len(predicted_labels)):
-        if predicted_labels[i] == 'attack' and actual_labels[i] == 'attack':
+        if predicted_labels[i] == 1 and actual_labels[i] == 1:
             TP += 1
-        elif predicted_labels[i] == 'attack' and actual_labels[i] == 'normal':
+        elif predicted_labels[i] == 1 and actual_labels[i] == 0:
             FP += 1
-        elif predicted_labels[i] == 'normal' and actual_labels[i] == 'normal':
+        elif predicted_labels[i] == 0 and actual_labels[i] == 0:
             TN += 1
-        elif predicted_labels[i] == 'normal' and actual_labels[i] == 'attack':
+        elif predicted_labels[i] == 0 and actual_labels[i] == 1:
             FN += 1
     accuracy = (TP + TN) / (TP + FP + TN + FN)
     TPR = TP / (FN + TP)
