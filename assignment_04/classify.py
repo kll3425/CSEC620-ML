@@ -243,6 +243,10 @@ def do_stage_1(X_tr, X_ts, Y_tr, Y_ts):
     pred : numpy array
            Final predictions on testing dataset.
     """
+
+    """
+    # Original Code
+
     model = RandomForestClassifier(n_jobs=-1, n_estimators=1, oob_score=True)
     model.fit(X_tr, Y_tr)
 
@@ -251,15 +255,117 @@ def do_stage_1(X_tr, X_ts, Y_tr, Y_ts):
 
     pred = model.predict(X_ts)
     return pred
+    """
+
+    # TODO: Implement Function
+    pass
+
+def gini_impurity(data_points, all_classes):
+    """
+    Parameters
+    ----------
+    data_points : numpy array
+           Array containing training labels.
+    all_classes : numpy array
+           Array containing all labels.
+
+    Returns
+    -------
+    GINI impurity score of a single node.
+    """
+
+    # Loop thorough each sample and accumulate the count per class 
+    sample_counts = {}
+    for each_class in all_classes:
+       # Initialize each class to 0
+       sample_counts[each_class] = 0
+    for sample in data_points:
+       # Increment sample count for specific class
+       sample_counts[sample] += 1
+
+    # Calculate the probability of each class
+    class_probabilities = []
+    for each_class in all_classes:
+       # Count the number of samples of a single class and divide it by the total number of samples in the node
+       # Store the probabilities as the square of the value
+       class_probabilities.append(np.square(sample_counts[each_class] / len(data_points)))
+
+    # Calculate the GINI impurity of the node by summing the square probabilities, then subtracting it from 1
+    return 1 - np.sum(class_probabilities)
+
+def weighted_gini_impurity(list_of_splits, all_classes):
+    """
+    Parameters
+    ----------
+    list_of_splits : list of numpy arrays
+           List containing arrays containing training labels.
+    all_classes : numpy array
+           Array containing all labels.
+
+    Returns
+    -------
+    Weighted GINI impurity score for a list of splits from the same parent node.
+    """
+
+    # Return the sum of the product of a node's GINI and percent of total data points out of the total in the parent node
+    num_data_points = sum(len(split) for split in list_of_splits)
+    return np.sum((len(split) / num_data_points) * gini_impurity(split, all_classes) for split in list_of_splits)
+
+def decision_tree(X_tr, X_ts, Y_tr, Y_ts, max_depth, min_node):
+    """
+    Predict the result of the sample using a random decision tree
+
+    Parameters
+    ----------
+    X_tr : numpy array
+           Array containing training samples.
+    Y_tr : numpy array
+           Array containing training labels.
+    X_ts : numpy array
+           Array containing testing samples.
+    Y_ts : numpy array
+           Array containing testing labels
+
+    Returns
+    -------
+    pred : numpy array
+           Final predictions on testing dataset.
+    """
+
+    # TODO: Implement Function
+    pass
 
 
 def main(args):
     """
     Perform main logic of program
     """
+    # Specify path or use args.root
+    path = "C:\\Users\\Kevin\\Code\\GitHub\\CSEC620-ML\\assignment_04\\iot_data"
+    argsroot = path if path != "" else args.root
+
     # load dataset
     print("Loading dataset ... ")
-    X, X_p, X_d, X_c, Y = load_data(args.root)
+    X, X_p, X_d, X_c, Y = load_data(argsroot)
+
+    # TODO: DELETE
+    print(type(X), type(X_p), type(X_d), type(X_c), type(Y))
+    print("=" * 50)
+    print("features_misc")
+    print(X)
+    print("=" * 50)
+    print("features_ports")
+    print(X_p)
+    print("=" * 50)
+    print("features_domains")
+    print(X_d)
+    print("=" * 50)
+    print("features_ciphers")
+    print(X_c)
+    print("=" * 50)
+    print("labels")
+    print(Y)
+    exit(0)
 
     # encode labels
     print("Encoding labels ... ")
