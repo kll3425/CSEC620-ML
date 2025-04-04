@@ -348,7 +348,8 @@ def main(args):
     print("Loading dataset ... ")
     X, X_p, X_d, X_c, Y = load_data(argsroot)
 
-    # TODO: DELETE
+    """
+    # test print to see loaded data
     print(type(X), type(X_p), type(X_d), type(X_c), type(Y))
     print("=" * 50)
     print("features_misc")
@@ -366,6 +367,7 @@ def main(args):
     print("labels")
     print(Y)
     exit(0)
+    """
 
     # encode labels
     print("Encoding labels ... ")
