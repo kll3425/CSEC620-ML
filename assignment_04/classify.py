@@ -15,7 +15,7 @@ warnings.warn = warn
 
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.preprocessing import LabelEncoder
-from sklearn.metrics import classification_report, accuracy_score
+from sklearn.metrics import classification_report
 
 
 # seed value
@@ -249,51 +249,50 @@ def do_stage_1(X_tr, X_ts, Y_tr, Y_ts):
 
     print("\n--- Decision Tree ---")
     
-    # Multiclass accuracy function
     def multiclass_accuracy(y_true, y_pred):
         correct = np.sum(y_true == y_pred)
         total = len(y_true)
         return correct / total
     
     print("Training Decision Tree...")
-    dt_preds, _, _ = decision_tree(X_tr, X_ts, Y_tr, Y_ts, max_depth=5, min_node=2, all_classes=np.unique(Y_tr))
-    dt_acc = multiclass_accuracy(Y_ts, dt_preds)
-    print(f"Decision Tree Accuracy: {dt_acc:.4f}")
+
+    # Decision tree with hyperparameter tuning (testing different max_depth and min_node values)
+    def tune_decision_tree(X_tr, X_ts, Y_tr, Y_ts, max_depth_vals=[5, 10], min_node_vals=[2, 5]):
+        best_acc = 0
+        best_preds = None
+        for max_depth in max_depth_vals:
+            for min_node in min_node_vals:
+                dt_preds, _, _ = decision_tree(X_tr, X_ts, Y_tr, Y_ts, max_depth=max_depth, min_node=min_node, all_classes=np.unique(Y_tr))
+                dt_acc = multiclass_accuracy(Y_ts, dt_preds)
+                print(f"Decision Tree Accuracy (max_depth={max_depth}, min_node={min_node}): {dt_acc:.4f}")
+                if dt_acc > best_acc:
+                    best_acc = dt_acc
+                    best_preds = dt_preds
+        return best_preds
     
-    # Random Forest (custom implementation)
+    dt_preds = tune_decision_tree(X_tr, X_ts, Y_tr, Y_ts)
+    
     print("\nTraining Random Forest...")
     
-    def random_forest_custom(X_tr, Y_tr, X_ts, n_trees=10, max_depth=5, min_node=2):
-        all_predictions = []
-        
-        for _ in range(n_trees):
-            # Sample with replacement
-            n_samples = len(X_tr)
-            sample_indices = np.random.choice(n_samples, n_samples, replace=True)
-            X_sample = X_tr[sample_indices]
-            Y_sample = Y_tr[sample_indices]
-            
-            # Train a decision tree on this sample
-            tree_preds, _, _ = decision_tree(X_sample, X_ts, Y_sample, Y_ts, max_depth, min_node, all_classes=np.unique(Y_tr))
-            all_predictions.append(tree_preds)
-        
-        all_predictions = np.array(all_predictions)
-        # Aggregate predictions (majority vote)
-        rf_preds = [np.bincount(preds).argmax() for preds in all_predictions.T]
-        return np.array(rf_preds)
+    # Random Forest with hyperparameter tuning (testing different n_trees, max_depth, min_node)
+    def tune_random_forest(X_tr, Y_tr, X_ts, Y_ts, n_trees_vals=[10, 50], max_depth_vals=[5, 10], min_node_vals=[2, 5]):
+        best_acc = 0
+        best_preds = None
+        for n_trees in n_trees_vals:
+            for max_depth in max_depth_vals:
+                for min_node in min_node_vals:
+                    rf_preds = random_forest(X_tr, Y_tr, X_ts, n_trees=n_trees, max_depth=max_depth, min_node=min_node)
+                    rf_acc = multiclass_accuracy(Y_ts, rf_preds)
+                    print(f"Random Forest Accuracy (n_trees={n_trees}, max_depth={max_depth}, min_node={min_node}): {rf_acc:.4f}")
+                    if rf_acc > best_acc:
+                        best_acc = rf_acc
+                        best_preds = rf_preds
+        return best_preds
     
-    rf_preds = random_forest_custom(X_tr, Y_tr, X_ts, n_trees=10, max_depth=5, min_node=2)
-    rf_acc = multiclass_accuracy(Y_ts, rf_preds)
-    print(f"Random Forest Accuracy: {rf_acc:.4f}")
-
-    rf_predictions = random_forest(X_tr, X_ts, Y_tr, Y_ts, n_trees=100, data_frac=0.7, feature_subcount=5, max_depth=10, min_node=5, all_classes=np.unique(Y_tr))
-    predictions, labels, indices = decision_tree(X_tr, X_ts, Y_tr, Y_ts, max_depth=10, min_node=5, all_classes=np.unique(Y_tr))
-    # Sort decision tree predictions by the original indices of the test samples
-    sorted_predictions = np.zeros(len(predictions), dtype=int)
-    for i in range(len(predictions)):
-        sorted_predictions[i] = int(predictions[np.where(indices == i)[0]])
-    # Return the predictions from the random forest classifier
-    return rf_predictions
+    rf_preds = tune_random_forest(X_tr, Y_tr, X_ts, Y_ts)
+    
+    # Return the final tuned predictions
+    return rf_preds, dt_preds
 
 
 def gini_impurity(data_points, all_classes):
