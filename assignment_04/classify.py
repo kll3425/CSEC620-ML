@@ -262,51 +262,60 @@ def do_stage_1(X_tr, X_ts, Y_tr, Y_ts):
     """
 
     print("\n--- Decision Tree ---")
-    # Define hyperparameters for tuning
-    dt_param_grid = {
-        'criterion': ['gini', 'entropy'],
-        'max_depth': [None, 5, 10, 15],
+    # Multiclass accuracy
+    def multiclass_accuracy(y_true, y_pred):
+        correct = np.sum(y_true == y_pred)
+        total = len(y_true)
+        return correct / total
+
+    # Decision Tree (baseline)
+    print("Training Decision Tree...")
+    dt = DecisionTreeClassifier(random_state=SEED)
+    dt.fit(X_tr, Y_tr)
+    dt_preds = dt.predict(X_ts)
+    dt_acc = multiclass_accuracy(Y_ts, dt_preds)
+    print(f"Decision Tree Accuracy: {dt_acc:.4f}")
+
+    # Random Forest (baseline)
+    print("\nTraining Random Forest...")
+    rf = RandomForestClassifier(random_state=SEED)
+    rf.fit(X_tr, Y_tr)
+    rf_preds = rf.predict(X_ts)
+    rf_acc = multiclass_accuracy(Y_ts, rf_preds)
+    print(f"Random Forest Accuracy: {rf_acc:.4f}")
+
+    # Hyperparameter Tuning for Decision Tree
+    print("\nTuning Decision Tree Hyperparameters...")
+    dt_params = {
+        'max_depth': [3, 5, 10, None],
         'min_samples_split': [2, 5, 10],
-        'min_samples_leaf': [1, 3, 5]
+        'min_samples_leaf': [1, 2, 4]
     }
+    dt_grid = GridSearchCV(DecisionTreeClassifier(random_state=SEED), dt_params, cv=3, scoring='accuracy')
+    dt_grid.fit(X_tr, Y_tr)
+    print("Best Decision Tree Params:", dt_grid.best_params_)
+    print(f"Best Cross-Validated Accuracy: {dt_grid.best_score_:.4f}")
 
-    # Perform GridSearchCV for hyperparameter tuning
-    dt_grid_search = GridSearchCV(DecisionTreeClassifier(random_state=SEED), dt_param_grid, cv=3, scoring='accuracy', n_jobs=-1)
-    dt_grid_search.fit(X_tr, Y_tr)
-
-    # Get the best model and make predictions
-    best_dt_model = dt_grid_search.best_estimator_
-    dt_pred = best_dt_model.predict(X_ts)
-
-    # Calculate multiclass accuracy
-    dt_accuracy = accuracy_score(Y_ts, dt_pred)
-    print("Best Decision Tree Hyperparameters:", dt_grid_search.best_params_)
-    print(f"Decision Tree Multiclass Accuracy: {dt_accuracy:.4f}")
-
-    print("\n--- Random Forest ---")
-    # Define hyperparameters for tuning
-    rf_param_grid = {
-        'n_estimators': [10, 50, 100, 200],
-        'criterion': ['gini', 'entropy'],
-        'max_depth': [None, 5, 10, 15],
-        'min_samples_split': [2, 5, 10],
-        'min_samples_leaf': [1, 3, 5]
+    # Hyperparameter Tuning for Random Forest
+    print("\nTuning Random Forest Hyperparameters...")
+    rf_params = {
+        'n_estimators': [10, 50, 100],
+        'max_depth': [5, 10, None],
+        'max_features': ['sqrt', 'log2'],
+        'min_samples_split': [2, 5],
+        'bootstrap': [True, False]
     }
+    rf_grid = GridSearchCV(RandomForestClassifier(random_state=SEED), rf_params, cv=3, scoring='accuracy', n_jobs=-1)
+    rf_grid.fit(X_tr, Y_tr)
+    print("Best Random Forest Params:", rf_grid.best_params_)
+    print(f"Best Cross-Validated Accuracy: {rf_grid.best_score_:.4f}")
+    
+    # Predict with best model
+    best_rf = rf_grid.best_estimator_
+    final_preds = best_rf.predict(X_ts)
 
-    # Perform GridSearchCV for hyperparameter tuning
-    rf_grid_search = GridSearchCV(RandomForestClassifier(random_state=SEED, n_jobs=-1), rf_param_grid, cv=3, scoring='accuracy', n_jobs=-1)
-    rf_grid_search.fit(X_tr, Y_tr)
+    return final_preds
 
-    # Get the best model and make predictions
-    best_rf_model = rf_grid_search.best_estimator_
-    rf_pred = best_rf_model.predict(X_ts)
-
-    # Calculate multiclass accuracy
-    rf_accuracy = accuracy_score(Y_ts, rf_pred)
-    print("Best Random Forest Hyperparameters:", rf_grid_search.best_params_)
-    print(f"Random Forest Multiclass Accuracy: {rf_accuracy:.4f}")
-
-    return rf_pred, dt_pred
 
 def gini_impurity(data_points, all_classes):
     """
