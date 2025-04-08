@@ -13,12 +13,11 @@ def warn(*args, **kwargs):
 import warnings
 warnings.warn = warn
 
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import classification_report, accuracy_score
 from sklearn.model_selection import GridSearchCV
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.linear_model import LogisticRegression
 
 # seed value
 # (ensures consistent dataset splitting between runs)
@@ -302,6 +301,14 @@ def do_stage_1(X_tr, X_ts, Y_tr, Y_ts):
     print(f"Random Forest Accuracy: {rf_acc:.4f}")
 
     return rf_preds, dt_preds
+    rf_predictions = random_forest(X_tr, X_ts, Y_tr, Y_ts, n_trees=100, data_frac=0.7, feature_subcount=5, max_depth=10, min_node=5, all_classes=np.unique(Y_tr))
+    predictions, labels, indices = decision_tree(X_tr, X_ts, Y_tr, Y_ts, max_depth=10, min_node=5, all_classes=np.unique(Y_tr))
+    # Sort decision tree predictions by the original indices of the test samples
+    sorted_predictions = np.zeros(len(predictions), dtype=int)
+    for i in range(len(predictions)):
+        sorted_predictions[i] = int(predictions[np.where(indices == i)[0]])
+    # Return the predictions from the random forest classifier
+    return rf_predictions
 
 
 def gini_impurity(data_points, all_classes):
@@ -538,14 +545,9 @@ def main(args):
     """
     Perform main logic of program
     """
-    # Specify path or use args.root
-    path = ".\\assignment_04\\iot_data"
-    argsroot = path if path != "" else args.root
-
     # load dataset
     print("Loading dataset ... ")
-    # X, X_p, X_d, X_c, Y = load_data(args.root)
-    X, X_p, X_d, X_c, Y = load_data(argsroot)
+    X, X_p, X_d, X_c, Y = load_data(args.root)
 
     # encode labels
     print("Encoding labels ... ")
