@@ -275,18 +275,20 @@ def do_stage_1(X_tr, X_ts, Y_tr, Y_ts):
     print("\nTraining Random Forest...")
     
     # Random Forest with hyperparameter tuning (testing different n_trees, max_depth, min_node)
-    def tune_random_forest(X_tr, Y_tr, X_ts, Y_ts, n_trees_vals=[10, 50], max_depth_vals=[5, 10], min_node_vals=[2, 5]):
+    def tune_random_forest(X_tr, Y_tr, X_ts, Y_ts, n_trees_vals=[10, 50], max_depth_vals=[5, 10], min_node_vals=[2, 5], data_frac_vals=[0.7, 0.8], feature_subcount_vals=[5, 10]):
         best_acc = 0
         best_preds = None
         for n_trees in n_trees_vals:
             for max_depth in max_depth_vals:
                 for min_node in min_node_vals:
-                    rf_preds = random_forest(X_tr, Y_tr, X_ts, n_trees=n_trees, max_depth=max_depth, min_node=min_node)
-                    rf_acc = multiclass_accuracy(Y_ts, rf_preds)
-                    print(f"Random Forest Accuracy (n_trees={n_trees}, max_depth={max_depth}, min_node={min_node}): {rf_acc:.4f}")
-                    if rf_acc > best_acc:
-                        best_acc = rf_acc
-                        best_preds = rf_preds
+                    for data_frac in data_frac_vals:
+                        for feature_subcount in feature_subcount_vals:
+                            rf_preds = random_forest(X_tr, X_ts, Y_tr, Y_ts, n_trees=n_trees, data_frac=data_frac, feature_subcount=feature_subcount, max_depth=max_depth, min_node=min_node, all_classes=np.unique(Y_tr))
+                            rf_acc = multiclass_accuracy(Y_ts, rf_preds)
+                            print(f"Random Forest Accuracy (n_trees={n_trees}, max_depth={max_depth}, min_node={min_node}, data_frac={data_frac}, feature_subcount={feature_subcount}): {rf_acc:.4f}")
+                            if rf_acc > best_acc:
+                                best_acc = rf_acc
+                                best_preds = rf_preds
         return best_preds
     
     rf_preds = tune_random_forest(X_tr, Y_tr, X_ts, Y_ts)
