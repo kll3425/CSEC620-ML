@@ -261,10 +261,17 @@ def do_stage_1(X_tr, X_ts, Y_tr, Y_ts):
 
     # TODO: DELETE DECISION TREE TEST CODE AND REPLACE WITH RF CLASSIFIER
     # Create a decision tree using the training data and labels
-    predictions, labels = decision_tree(X_tr, X_ts, Y_tr, Y_ts, 2, 5, all_classes)
+    subset_len = 15
+    predictions, labels, indexes = decision_tree(X_tr, X_ts[:subset_len], Y_tr, Y_ts[:subset_len], 2, 5, all_classes)
+    # Sort the predictions by the original indices of the test samples
+    sorted_predictions = np.zeros(len(labels))
+    sorted_labels = np.zeros(len(labels))
+    for i in range(len(labels)):
+        # Set sorted labels at i equal to the label where the indexes contains the i-th index
+        sorted_predictions[i] = predictions[np.where(indexes == i)[0]]
+        sorted_labels[i] = labels[np.where(indexes == i)[0]]
     # Print the accuracy of the decision tree
-    accuracy = np.sum(predictions == labels) / len(labels)
-    print("Decision Tree accuracy = {}".format(accuracy))
+    print("Decision Tree accuracy = {}".format(np.sum(sorted_predictions == sorted_labels) / len(sorted_labels)))
 
     # TODO: Implement Random Forest Classifier
     pass
@@ -348,7 +355,7 @@ def find_best_split(feature_values, labels, all_classes):
                empty_split = False
     return best_split, lowest_gini, empty_split
 
-def decision_tree(X_tr, X_ts, Y_tr, Y_ts, max_depth, min_node, all_classes):
+def decision_tree(X_tr, X_ts, Y_tr, Y_ts, max_depth, min_node, all_classes, ts_indices=None):
     """
     Predict the result of the sample using a random decision tree
 
@@ -362,18 +369,28 @@ def decision_tree(X_tr, X_ts, Y_tr, Y_ts, max_depth, min_node, all_classes):
            Array containing testing samples.
     Y_ts : numpy array
            Array containing testing labels
+    max_depth : int
+           Maximum depth of the tree.
+    min_node : int
+           Minimum number of samples in a node to split.
+    all_classes : numpy array
+           Array containing all labels.
+    ts_indices : numpy array, optional
+           Array containing original indices of the testing samples and predictions.
 
     Returns
     -------
-    pred : numpy array
-           Final predictions on testing dataset.
+    Predictions, labels, and indices of the test samples.
     """
+    # Initialize the indices of the test samples if not provided
+    if ts_indices is None:
+        ts_indices = np.arange(len(X_ts))
     # Transpose the array of samples to obtain an array of features
     features = X_tr.T
     # Check if node meets ending criteria
     if max_depth == 0 or len(X_tr) < min_node:
-        # Return most popular class in remaining data for all test points and test labels
-        return [np.argmax(np.bincount(Y_tr)) for i in range(len(X_ts))], Y_ts
+        # Return most popular class in remaining data for all test points and test labels along with the indices
+        return [np.argmax(np.bincount(Y_tr)) for i in range(len(X_ts))], Y_ts, ts_indices
     # Store the split and lowest GINI of each feature to determine best feature to split on
     best_feature_split, lowest_feature_gini, empty_split = find_best_split(features[0], Y_tr, all_classes)
     best_feature = 0
@@ -388,8 +405,8 @@ def decision_tree(X_tr, X_ts, Y_tr, Y_ts, max_depth, min_node, all_classes):
     gini = gini_impurity(Y_tr, all_classes)
     # Check additional node ending criteria
     if lowest_feature_gini > gini or empty_split:
-        # Return most popular class in remaining data for all test points and test labels
-        return [np.argmax(np.bincount(Y_tr)) for i in range(len(X_ts))], Y_ts
+        # Return most popular class in remaining data for all test points and test labels along with the indices
+        return [np.argmax(np.bincount(Y_tr)) for i in range(len(X_ts))], Y_ts, ts_indices
     # Create boolean masks to split dataset
     left_train_mask = X_tr[:, best_feature] <= best_feature_split
     left_test_mask = X_ts[:, best_feature] <= best_feature_split
@@ -397,27 +414,88 @@ def decision_tree(X_tr, X_ts, Y_tr, Y_ts, max_depth, min_node, all_classes):
     right_test_mask = X_ts[:, best_feature] > best_feature_split
     # Extra check to ensure that the split is not empty
     if len(left_train_mask) == 0 or len(right_train_mask) == 0:
-       return [np.argmax(np.bincount(Y_tr)) for i in range(len(X_ts))], Y_ts
+        # Return most popular class in remaining data for all test points and test labels along with the indices
+        return [np.argmax(np.bincount(Y_tr)) for i in range(len(X_ts))], Y_ts, ts_indices
     # Predict test samples using recursive splits
-    left_predictions, left_labels = decision_tree(
+    left_predictions, left_labels, left_indexes = decision_tree(
         X_tr[left_train_mask],
         X_ts[left_test_mask], 
         Y_tr[left_train_mask], 
         Y_ts[left_test_mask], 
         max_depth - 1, 
         min_node, 
-        all_classes
+        all_classes,
+        ts_indices[left_test_mask]
     )
-    right_predictions, right_labels = decision_tree(
+    right_predictions, right_labels, right_indexes = decision_tree(
         X_tr[right_train_mask],
         X_ts[right_test_mask], 
         Y_tr[right_train_mask], 
         Y_ts[right_test_mask], 
         max_depth - 1, 
         min_node, 
-        all_classes
+        all_classes,
+        ts_indices[right_test_mask]
     )
-    return np.concatenate((left_predictions, right_predictions)), np.concatenate((left_labels, right_labels))
+    return np.concatenate((left_predictions, right_predictions)), np.concatenate((left_labels, right_labels)), np.concatenate((left_indexes, right_indexes))
+
+def random_forest(train_samples, test_samples, train_labels, test_labels, n_trees, data_frac, feature_subcount, max_depth, min_node, all_classes):
+    """
+    Predict the result of the sample using a random decision tree
+
+    Parameters
+    ----------
+    train_samples : numpy array
+           Array containing training samples.
+    train_labels : numpy array
+           Array containing training labels.
+    test_samples : numpy array
+           Array containing testing samples.
+    test_labels : numpy array
+           Array containing testing labels
+    n_trees : int
+           Number of trees to use per random forest.
+    data_frac : int
+           Percentage of total data per tree/subset of data.
+    feature_subcount : int
+           Number of features to use per tree.
+    max_depth : int
+           Maximum depth of each tree.
+    min_node : int
+           Minimum number of samples in a node to split for each tree.
+    all_classes : numpy array
+           Array containing all labels.
+    ts_indices : numpy array, optional
+           Array containing original indices of the testing samples and predictions.
+
+    Returns
+    -------
+    Predictions of the test samples.
+    """
+    all_predictions = []
+    # Build n trees
+    for i in range(n_trees):
+        # Create a subset of data using random sampling until the subset if data_frac percent of the total data
+        subset_samples = []
+        subset_labels = []
+        for i in range(int(len(train_samples) * data_frac)):
+            rand_index = np.random.randint(0, len(train_samples))
+            subset_samples.append(train_samples[rand_index])
+            subset_labels.append(train_labels[rand_index])
+        subset_samples = np.array(subset_samples)
+        subset_labels = np.array(subset_labels)
+        # Randomly select feature_subcount features to use for the tree
+        feature_indices = np.random.choice(len(train_samples[0]), feature_subcount, replace=False)
+        # Create a new decision tree using the subset of data and features
+        predictions, labels, indexes = decision_tree(subset_samples[:, feature_indices], test_samples, subset_labels[:, feature_indices], test_labels, max_depth, min_node, all_classes)
+        # Store the predictions of the tree using the original feature indices
+        sorted_predictions = np.zeros(len(predictions))
+        for i in range(len(predictions)):
+            sorted_predictions[i] = predictions[np.where(indexes == i)[0]]
+        all_predictions.append(sorted_predictions)
+    # Transpose predictions to sort by sample, then count most common prediction per sample and return the list of predictions
+    all_predictions = np.array(all_predictions).T
+    return np.array([np.bincount(sample).argmax() for sample in all_predictions])
 
 def main(args):
     """
