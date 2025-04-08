@@ -256,8 +256,17 @@ def do_stage_1(X_tr, X_ts, Y_tr, Y_ts):
     pred = model.predict(X_ts)
     return pred
     """
+    # Generate a list of all classes
+    all_classes = np.unique(Y_tr)
 
-    # TODO: Implement Function
+    # TODO: DELETE DECISION TREE TEST CODE AND REPLACE WITH RF CLASSIFIER
+    # Create a decision tree using the training data and labels
+    predictions, labels = decision_tree(X_tr, X_ts, Y_tr, Y_ts, 2, 5, all_classes)
+    # Print the accuracy of the decision tree
+    accuracy = np.sum(predictions == labels) / len(labels)
+    print("Decision Tree accuracy = {}".format(accuracy))
+
+    # TODO: Implement Random Forest Classifier
     pass
 
 def gini_impurity(data_points, all_classes):
@@ -311,7 +320,35 @@ def weighted_gini_impurity(list_of_splits, all_classes):
     num_data_points = sum(len(split) for split in list_of_splits)
     return np.sum((len(split) / num_data_points) * gini_impurity(split, all_classes) for split in list_of_splits)
 
-def decision_tree(X_tr, X_ts, Y_tr, Y_ts, max_depth, min_node):
+def find_best_split(feature_values, labels, all_classes):
+    # Zip pairs of feature values and labels, then sort pairs by the feature values
+    data = sorted(zip(feature_values, labels), key=lambda x: x[0])
+    # Store best split value for the specific feature
+    lowest_gini = float('inf')
+    best_split = None
+    empty_split = False
+    # Loop through the dataset, splitting between each adjacent pair of points and calculating the GINI
+    for i in range(1, len(feature_values)):
+        # If the feature_value of the next sample is the same as the current, skip the redundant calculation
+        if data[i - 1][0] == data[i][0]:
+           continue
+        # Create split dataset labels, ignoring feature values
+        left_split = [label for _, label in data[:i]]
+        right_split = [label for _, label in data[i:]]
+        # Compute weighted GINI of split nodes
+        weighted_gini = weighted_gini_impurity([left_split, right_split], all_classes)
+        # Update best split value if calculated GINI score is lower
+        if weighted_gini < lowest_gini:
+           lowest_gini = weighted_gini
+           best_split = (data[i - 1][0] + data[i][0]) / 2
+           # Check for empty split
+           if len(left_split) == 0 or len(right_split) == 0:
+               empty_split = True
+           else:
+               empty_split = False
+    return best_split, lowest_gini, empty_split
+
+def decision_tree(X_tr, X_ts, Y_tr, Y_ts, max_depth, min_node, all_classes):
     """
     Predict the result of the sample using a random decision tree
 
@@ -331,10 +368,56 @@ def decision_tree(X_tr, X_ts, Y_tr, Y_ts, max_depth, min_node):
     pred : numpy array
            Final predictions on testing dataset.
     """
-
-    # TODO: Implement Function
-    pass
-
+    # Transpose the array of samples to obtain an array of features
+    features = X_tr.T
+    # Check if node meets ending criteria
+    if max_depth == 0 or len(X_tr) < min_node:
+        # Return most popular class in remaining data for all test points and test labels
+        return [np.argmax(np.bincount(Y_tr)) for i in range(len(X_ts))], Y_ts
+    # Store the split and lowest GINI of each feature to determine best feature to split on
+    best_feature_split, lowest_feature_gini, empty_split = find_best_split(features[0], Y_tr, all_classes)
+    best_feature = 0
+    for i in range(1, len(features)):
+        best_split, lowest_gini, empty_split_curr = find_best_split(features[i], Y_tr, all_classes)
+        if lowest_gini < lowest_feature_gini:
+            best_feature_split = best_split
+            lowest_feature_gini = lowest_gini
+            best_feature = i
+            empty_split = empty_split_curr
+    # Calculate GINI of current node
+    gini = gini_impurity(Y_tr, all_classes)
+    # Check additional node ending criteria
+    if lowest_feature_gini > gini or empty_split:
+        # Return most popular class in remaining data for all test points and test labels
+        return [np.argmax(np.bincount(Y_tr)) for i in range(len(X_ts))], Y_ts
+    # Create boolean masks to split dataset
+    left_train_mask = X_tr[:, best_feature] <= best_feature_split
+    left_test_mask = X_ts[:, best_feature] <= best_feature_split
+    right_train_mask = X_tr[:, best_feature] > best_feature_split
+    right_test_mask = X_ts[:, best_feature] > best_feature_split
+    # Extra check to ensure that the split is not empty
+    if len(left_train_mask) == 0 or len(right_train_mask) == 0:
+       return [np.argmax(np.bincount(Y_tr)) for i in range(len(X_ts))], Y_ts
+    # Predict test samples using recursive splits
+    left_predictions, left_labels = decision_tree(
+        X_tr[left_train_mask],
+        X_ts[left_test_mask], 
+        Y_tr[left_train_mask], 
+        Y_ts[left_test_mask], 
+        max_depth - 1, 
+        min_node, 
+        all_classes
+    )
+    right_predictions, right_labels = decision_tree(
+        X_tr[right_train_mask],
+        X_ts[right_test_mask], 
+        Y_tr[right_train_mask], 
+        Y_ts[right_test_mask], 
+        max_depth - 1, 
+        min_node, 
+        all_classes
+    )
+    return np.concatenate((left_predictions, right_predictions)), np.concatenate((left_labels, right_labels))
 
 def main(args):
     """
@@ -346,28 +429,8 @@ def main(args):
 
     # load dataset
     print("Loading dataset ... ")
+    # X, X_p, X_d, X_c, Y = load_data(args.root)
     X, X_p, X_d, X_c, Y = load_data(argsroot)
-
-    """
-    # test print to see loaded data
-    print(type(X), type(X_p), type(X_d), type(X_c), type(Y))
-    print("=" * 50)
-    print("features_misc")
-    print(X)
-    print("=" * 50)
-    print("features_ports")
-    print(X_p)
-    print("=" * 50)
-    print("features_domains")
-    print(X_d)
-    print("=" * 50)
-    print("features_ciphers")
-    print(X_c)
-    print("=" * 50)
-    print("labels")
-    print(Y)
-    exit(0)
-    """
 
     # encode labels
     print("Encoding labels ... ")
