@@ -519,14 +519,14 @@ def random_forest(train_samples, test_samples, train_labels, test_labels, n_tree
         # Randomly select feature_subcount features to use for the tree
         feature_indices = np.random.choice(len(train_samples[0]), feature_subcount, replace=False)
         # Create a new decision tree using the subset of data and features
-        predictions, labels, indexes = decision_tree(subset_samples[:, feature_indices], test_samples, subset_labels[:, feature_indices], test_labels, max_depth, min_node, all_classes)
+        predictions, labels, indexes = decision_tree(subset_samples[:, feature_indices], test_samples[:, feature_indices], subset_labels, test_labels, max_depth, min_node, all_classes)
         # Store the predictions of the tree using the original feature indices
-        sorted_predictions = np.zeros(len(predictions))
+        sorted_predictions = np.zeros(len(predictions), dtype=int)
         for i in range(len(predictions)):
-            sorted_predictions[i] = predictions[np.where(indexes == i)[0]]
+            sorted_predictions[i] = int(predictions[np.where(indexes == i)[0]])
         all_predictions.append(sorted_predictions)
     # Transpose predictions to sort by sample, then count most common prediction per sample and return the list of predictions
-    all_predictions = np.array(all_predictions).T
+    all_predictions = np.array(all_predictions, dtype=int).T
     return np.array([np.bincount(sample).argmax() for sample in all_predictions])
 
 def main(args):
