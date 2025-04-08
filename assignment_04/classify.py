@@ -249,19 +249,6 @@ def do_stage_1(X_tr, X_ts, Y_tr, Y_ts):
               Final predictions from the Decision Tree on the testing dataset.
     """
 
-    """
-    # Original Code
-
-    model = RandomForestClassifier(n_jobs=-1, n_estimators=1, oob_score=True)
-    model.fit(X_tr, Y_tr)
-
-    score = model.score(X_ts, Y_ts)
-    print("RF accuracy = {}".format(score))
-
-    pred = model.predict(X_ts)
-    return pred
-    """
-
     print("\n--- Decision Tree ---")
     # Multiclass accuracy
     def multiclass_accuracy(y_true, y_pred):
