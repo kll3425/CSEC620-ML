@@ -16,8 +16,7 @@ warnings.warn = warn
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import classification_report, accuracy_score
-from sklearn.model_selection import GridSearchCV
-from sklearn.linear_model import LogisticRegression
+
 
 # seed value
 # (ensures consistent dataset splitting between runs)
@@ -248,19 +247,6 @@ def do_stage_1(X_tr, X_ts, Y_tr, Y_ts):
               Final predictions from the Decision Tree on the testing dataset.
     """
 
-    """
-    # Original Code
-
-    model = RandomForestClassifier(n_jobs=-1, n_estimators=1, oob_score=True)
-    model.fit(X_tr, Y_tr)
-
-    score = model.score(X_ts, Y_ts)
-    print("RF accuracy = {}".format(score))
-
-    pred = model.predict(X_ts)
-    return pred
-    """
-
     print("\n--- Decision Tree ---")
     
     # Multiclass accuracy function
@@ -300,7 +286,6 @@ def do_stage_1(X_tr, X_ts, Y_tr, Y_ts):
     rf_acc = multiclass_accuracy(Y_ts, rf_preds)
     print(f"Random Forest Accuracy: {rf_acc:.4f}")
 
-    return rf_preds, dt_preds
     rf_predictions = random_forest(X_tr, X_ts, Y_tr, Y_ts, n_trees=100, data_frac=0.7, feature_subcount=5, max_depth=10, min_node=5, all_classes=np.unique(Y_tr))
     predictions, labels, indices = decision_tree(X_tr, X_ts, Y_tr, Y_ts, max_depth=10, min_node=5, all_classes=np.unique(Y_tr))
     # Sort decision tree predictions by the original indices of the test samples
@@ -545,9 +530,14 @@ def main(args):
     """
     Perform main logic of program
     """
+    # Specify path or use args.root
+    path = ".\\assignment_04\\iot_data"
+    argsroot = path if path != "" else args.root
+
     # load dataset
     print("Loading dataset ... ")
-    X, X_p, X_d, X_c, Y = load_data(args.root)
+    # X, X_p, X_d, X_c, Y = load_data(args.root)
+    X, X_p, X_d, X_c, Y = load_data(argsroot)
 
     # encode labels
     print("Encoding labels ... ")
