@@ -15,7 +15,9 @@ warnings.warn = warn
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.preprocessing import LabelEncoder
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, accuracy_score
+from sklearn.model_selection import GridSearchCV
+from sklearn.tree import DecisionTreeClassifier
 
 # seed value
 # (ensures consistent dataset splitting between runs)
@@ -240,8 +242,10 @@ def do_stage_1(X_tr, X_ts, Y_tr, Y_ts):
 
     Returns
     -------
-    pred : numpy array
-           Final predictions on testing dataset.
+    rf_pred : numpy array
+              Final predictions from the Random Forest on the testing dataset.
+    dt_pred : numpy array
+              Final predictions from the Decision Tree on the testing dataset.
     """
 
     """
@@ -256,25 +260,53 @@ def do_stage_1(X_tr, X_ts, Y_tr, Y_ts):
     pred = model.predict(X_ts)
     return pred
     """
-    # Generate a list of all classes
-    all_classes = np.unique(Y_tr)
 
-    # TODO: DELETE DECISION TREE TEST CODE AND REPLACE WITH RF CLASSIFIER
-    # Create a decision tree using the training data and labels
-    subset_len = 15
-    predictions, labels, indexes = decision_tree(X_tr, X_ts[:subset_len], Y_tr, Y_ts[:subset_len], 2, 5, all_classes)
-    # Sort the predictions by the original indices of the test samples
-    sorted_predictions = np.zeros(len(labels))
-    sorted_labels = np.zeros(len(labels))
-    for i in range(len(labels)):
-        # Set sorted labels at i equal to the label where the indexes contains the i-th index
-        sorted_predictions[i] = predictions[np.where(indexes == i)[0]]
-        sorted_labels[i] = labels[np.where(indexes == i)[0]]
-    # Print the accuracy of the decision tree
-    print("Decision Tree accuracy = {}".format(np.sum(sorted_predictions == sorted_labels) / len(sorted_labels)))
+    print("\n--- Decision Tree ---")
+    # Define hyperparameters for tuning
+    dt_param_grid = {
+        'criterion': ['gini', 'entropy'],
+        'max_depth': [None, 5, 10, 15],
+        'min_samples_split': [2, 5, 10],
+        'min_samples_leaf': [1, 3, 5]
+    }
 
-    # TODO: Implement Random Forest Classifier
-    pass
+    # Perform GridSearchCV for hyperparameter tuning
+    dt_grid_search = GridSearchCV(DecisionTreeClassifier(random_state=SEED), dt_param_grid, cv=3, scoring='accuracy', n_jobs=-1)
+    dt_grid_search.fit(X_tr, Y_tr)
+
+    # Get the best model and make predictions
+    best_dt_model = dt_grid_search.best_estimator_
+    dt_pred = best_dt_model.predict(X_ts)
+
+    # Calculate multiclass accuracy
+    dt_accuracy = accuracy_score(Y_ts, dt_pred)
+    print("Best Decision Tree Hyperparameters:", dt_grid_search.best_params_)
+    print(f"Decision Tree Multiclass Accuracy: {dt_accuracy:.4f}")
+
+    print("\n--- Random Forest ---")
+    # Define hyperparameters for tuning
+    rf_param_grid = {
+        'n_estimators': [10, 50, 100, 200],
+        'criterion': ['gini', 'entropy'],
+        'max_depth': [None, 5, 10, 15],
+        'min_samples_split': [2, 5, 10],
+        'min_samples_leaf': [1, 3, 5]
+    }
+
+    # Perform GridSearchCV for hyperparameter tuning
+    rf_grid_search = GridSearchCV(RandomForestClassifier(random_state=SEED, n_jobs=-1), rf_param_grid, cv=3, scoring='accuracy', n_jobs=-1)
+    rf_grid_search.fit(X_tr, Y_tr)
+
+    # Get the best model and make predictions
+    best_rf_model = rf_grid_search.best_estimator_
+    rf_pred = best_rf_model.predict(X_ts)
+
+    # Calculate multiclass accuracy
+    rf_accuracy = accuracy_score(Y_ts, rf_pred)
+    print("Best Random Forest Hyperparameters:", rf_grid_search.best_params_)
+    print(f"Random Forest Multiclass Accuracy: {rf_accuracy:.4f}")
+
+    return rf_pred, dt_pred
 
 def gini_impurity(data_points, all_classes):
     """
@@ -502,7 +534,7 @@ def main(args):
     Perform main logic of program
     """
     # Specify path or use args.root
-    path = "C:\\Users\\Kevin\\Code\\GitHub\\CSEC620-ML\\assignment_04\\iot_data"
+    path = ".\\assignment_04\\iot_data"
     argsroot = path if path != "" else args.root
 
     # load dataset
