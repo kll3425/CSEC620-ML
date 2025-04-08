@@ -13,11 +13,12 @@ def warn(*args, **kwargs):
 import warnings
 warnings.warn = warn
 
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import classification_report, accuracy_score
 from sklearn.model_selection import GridSearchCV
-from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
 
 # seed value
 # (ensures consistent dataset splitting between runs)
@@ -248,38 +249,14 @@ def do_stage_1(X_tr, X_ts, Y_tr, Y_ts):
               Final predictions from the Decision Tree on the testing dataset.
     """
 
-    print("\n--- Decision Tree ---")
-    print("\n--- Logistic Regression ---")
-    # Multiclass accuracy
-    def multiclass_accuracy(y_true, y_pred):
-        correct = np.sum(y_true == y_pred)
-        total = len(y_true)
-        return correct / total
-
-    # Logistic Regression (baseline)
-    print("Training Logistic Regression...")
-    lr = LogisticRegression(random_state=SEED, solver='liblinear', multi_class='ovr')
-    lr.fit(X_tr, Y_tr)
-    lr_preds = lr.predict(X_ts)
-    lr_acc = multiclass_accuracy(Y_ts, lr_preds)
-    print(f"Logistic Regression Accuracy: {lr_acc:.4f}")
-
-    # Hyperparameter Tuning for Logistic Regression
-    print("\nTuning Logistic Regression Hyperparameters...")
-    lr_params = {
-        'C': [0.001, 0.01, 0.1, 1, 10, 100],
-        'penalty': ['l1', 'l2']
-    }
-    lr_grid = GridSearchCV(LogisticRegression(random_state=SEED, solver='liblinear', multi_class='ovr'), lr_params, cv=3, scoring='accuracy', n_jobs=-1)
-    lr_grid.fit(X_tr, Y_tr)
-    print("Best Logistic Regression Params:", lr_grid.best_params_)
-    print(f"Best Cross-Validated Accuracy: {lr_grid.best_score_:.4f}")
-
-    # Predict with best model
-    best_lr = lr_grid.best_estimator_
-    final_preds = best_lr.predict(X_ts)
-
-    return final_preds
+    rf_predictions = random_forest(X_tr, X_ts, Y_tr, Y_ts, n_trees=100, data_frac=0.7, feature_subcount=5, max_depth=10, min_node=5, all_classes=np.unique(Y_tr))
+    predictions, labels, indices = decision_tree(X_tr, X_ts, Y_tr, Y_ts, max_depth=10, min_node=5, all_classes=np.unique(Y_tr))
+    # Sort decision tree predictions by the original indices of the test samples
+    sorted_predictions = np.zeros(len(predictions), dtype=int)
+    for i in range(len(predictions)):
+        sorted_predictions[i] = int(predictions[np.where(indices == i)[0]])
+    # Return the predictions from the random forest classifier
+    return rf_predictions
 
 
 def gini_impurity(data_points, all_classes):
@@ -516,14 +493,9 @@ def main(args):
     """
     Perform main logic of program
     """
-    # Specify path or use args.root
-    path = ".\\assignment_04\\iot_data"
-    argsroot = path if path != "" else args.root
-
     # load dataset
     print("Loading dataset ... ")
-    # X, X_p, X_d, X_c, Y = load_data(args.root)
-    X, X_p, X_d, X_c, Y = load_data(argsroot)
+    X, X_p, X_d, X_c, Y = load_data(args.root)
 
     # encode labels
     print("Encoding labels ... ")
