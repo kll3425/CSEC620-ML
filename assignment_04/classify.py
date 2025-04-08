@@ -470,7 +470,7 @@ def decision_tree(X_tr, X_ts, Y_tr, Y_ts, max_depth, min_node, all_classes, ts_i
 
 def random_forest(train_samples, test_samples, train_labels, test_labels, n_trees, data_frac, feature_subcount, max_depth, min_node, all_classes):
     """
-    Predict the result of the sample using a random decision tree
+    Predict the result of the sample using a random forest classifier
 
     Parameters
     ----------
