@@ -260,10 +260,6 @@ def do_stage_1(X_tr, X_ts, Y_tr, Y_ts):
     pred = model.predict(X_ts)
     return pred
     """
-    print("Shape of X_tr:", X_tr.shape)
-    print("Shape of X_ts:", X_ts.shape)
-    print("Length of Y_tr:", len(Y_tr))
-    print("Length of Y_ts:", len(Y_ts))
 
     print("\n--- Decision Tree ---")
     # Define hyperparameters for tuning
