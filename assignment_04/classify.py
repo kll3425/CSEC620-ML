@@ -13,11 +13,12 @@ def warn(*args, **kwargs):
 import warnings
 warnings.warn = warn
 
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import classification_report, accuracy_score
 from sklearn.model_selection import GridSearchCV
-from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
 
 # seed value
 # (ensures consistent dataset splitting between runs)
@@ -248,38 +249,59 @@ def do_stage_1(X_tr, X_ts, Y_tr, Y_ts):
               Final predictions from the Decision Tree on the testing dataset.
     """
 
+    """
+    # Original Code
+
+    model = RandomForestClassifier(n_jobs=-1, n_estimators=1, oob_score=True)
+    model.fit(X_tr, Y_tr)
+
+    score = model.score(X_ts, Y_ts)
+    print("RF accuracy = {}".format(score))
+
+    pred = model.predict(X_ts)
+    return pred
+    """
+
     print("\n--- Decision Tree ---")
-    print("\n--- Logistic Regression ---")
-    # Multiclass accuracy
+    
+    # Multiclass accuracy function
     def multiclass_accuracy(y_true, y_pred):
         correct = np.sum(y_true == y_pred)
         total = len(y_true)
         return correct / total
+    
+    print("Training Decision Tree...")
+    dt_preds, _, _ = decision_tree(X_tr, X_ts, Y_tr, Y_ts, max_depth=5, min_node=2, all_classes=np.unique(Y_tr))
+    dt_acc = multiclass_accuracy(Y_ts, dt_preds)
+    print(f"Decision Tree Accuracy: {dt_acc:.4f}")
+    
+    # Random Forest (custom implementation)
+    print("\nTraining Random Forest...")
+    
+    def random_forest_custom(X_tr, Y_tr, X_ts, n_trees=10, max_depth=5, min_node=2):
+        all_predictions = []
+        
+        for _ in range(n_trees):
+            # Sample with replacement
+            n_samples = len(X_tr)
+            sample_indices = np.random.choice(n_samples, n_samples, replace=True)
+            X_sample = X_tr[sample_indices]
+            Y_sample = Y_tr[sample_indices]
+            
+            # Train a decision tree on this sample
+            tree_preds, _, _ = decision_tree(X_sample, X_ts, Y_sample, Y_ts, max_depth, min_node, all_classes=np.unique(Y_tr))
+            all_predictions.append(tree_preds)
+        
+        all_predictions = np.array(all_predictions)
+        # Aggregate predictions (majority vote)
+        rf_preds = [np.bincount(preds).argmax() for preds in all_predictions.T]
+        return np.array(rf_preds)
+    
+    rf_preds = random_forest_custom(X_tr, Y_tr, X_ts, n_trees=10, max_depth=5, min_node=2)
+    rf_acc = multiclass_accuracy(Y_ts, rf_preds)
+    print(f"Random Forest Accuracy: {rf_acc:.4f}")
 
-    # Logistic Regression (baseline)
-    print("Training Logistic Regression...")
-    lr = LogisticRegression(random_state=SEED, solver='liblinear', multi_class='ovr')
-    lr.fit(X_tr, Y_tr)
-    lr_preds = lr.predict(X_ts)
-    lr_acc = multiclass_accuracy(Y_ts, lr_preds)
-    print(f"Logistic Regression Accuracy: {lr_acc:.4f}")
-
-    # Hyperparameter Tuning for Logistic Regression
-    print("\nTuning Logistic Regression Hyperparameters...")
-    lr_params = {
-        'C': [0.001, 0.01, 0.1, 1, 10, 100],
-        'penalty': ['l1', 'l2']
-    }
-    lr_grid = GridSearchCV(LogisticRegression(random_state=SEED, solver='liblinear', multi_class='ovr'), lr_params, cv=3, scoring='accuracy', n_jobs=-1)
-    lr_grid.fit(X_tr, Y_tr)
-    print("Best Logistic Regression Params:", lr_grid.best_params_)
-    print(f"Best Cross-Validated Accuracy: {lr_grid.best_score_:.4f}")
-
-    # Predict with best model
-    best_lr = lr_grid.best_estimator_
-    final_preds = best_lr.predict(X_ts)
-
-    return final_preds
+    return rf_preds, dt_preds
 
 
 def gini_impurity(data_points, all_classes):
