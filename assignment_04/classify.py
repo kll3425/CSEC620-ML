@@ -243,11 +243,9 @@ def do_stage_1(X_tr, X_ts, Y_tr, Y_ts):
     -------
     rf_pred : numpy array
               Final predictions from the Random Forest on the testing dataset.
-    dt_pred : numpy array
-              Final predictions from the Decision Tree on the testing dataset.
     """
 
-    print("\n--- Decision Tree ---")
+    print("--- Decision Tree ---")
     
     def multiclass_accuracy(y_true, y_pred):
         correct = np.sum(y_true == y_pred)
@@ -272,7 +270,7 @@ def do_stage_1(X_tr, X_ts, Y_tr, Y_ts):
     
     dt_preds = tune_decision_tree(X_tr, X_ts, Y_tr, Y_ts)
     
-    print("\nTraining Random Forest...")
+    print("Training Random Forest...")
     
     # Random Forest with hyperparameter tuning (testing different n_trees, max_depth, min_node)
     def tune_random_forest(X_tr, Y_tr, X_ts, Y_ts, n_trees_vals=[10, 50], max_depth_vals=[5, 10], min_node_vals=[2, 5], data_frac_vals=[0.7, 0.8], feature_subcount_vals=[5, 10]):
@@ -294,7 +292,7 @@ def do_stage_1(X_tr, X_ts, Y_tr, Y_ts):
     rf_preds = tune_random_forest(X_tr, Y_tr, X_ts, Y_ts)
     
     # Return the final tuned predictions
-    return rf_preds, dt_preds
+    return rf_preds
 
 
 def gini_impurity(data_points, all_classes):
@@ -531,14 +529,10 @@ def main(args):
     """
     Perform main logic of program
     """
-    # Specify path or use args.root
-    path = ".\\assignment_04\\iot_data"
-    argsroot = path if path != "" else args.root
 
     # load dataset
     print("Loading dataset ... ")
-    # X, X_p, X_d, X_c, Y = load_data(args.root)
-    X, X_p, X_d, X_c, Y = load_data(argsroot)
+    X, X_p, X_d, X_c, Y = load_data(args.root)
 
     # encode labels
     print("Encoding labels ... ")
@@ -580,6 +574,9 @@ def main(args):
 
     # print classification report
     print(classification_report(Y_ts, pred, target_names=le.classes_))
+
+    # Generate the class by class confusion matrix
+    class_by_class_confusion_matrix(pred, Y_ts, le.classes_)
 
 
 if __name__ == "__main__":
