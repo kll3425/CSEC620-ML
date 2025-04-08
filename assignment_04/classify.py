@@ -5,6 +5,7 @@ import argparse
 import os
 import numpy as np
 import tqdm
+import pandas as pd
 
 # Supress sklearn warnings
 def warn(*args, **kwargs):
@@ -537,6 +538,15 @@ def random_forest(train_samples, test_samples, train_labels, test_labels, n_tree
     # Transpose predictions to sort by sample, then count most common prediction per sample and return the list of predictions
     all_predictions = np.array(all_predictions, dtype=int).T
     return np.array([np.bincount(sample).argmax() for sample in all_predictions])
+
+def class_by_class_confusion_matrix(predictions, labels, all_classes):
+       # Create a confusion matrix for each class.
+       confusion_matrix = np.zeros((len(all_classes), len(all_classes)), dtype=int)
+       for i in range(len(predictions)):
+              confusion_matrix[labels[i]][predictions[i]] += 1
+       # Save the confusion matrix to "confusion_matrix.csv" using pandas
+       df = pd.DataFrame(confusion_matrix, index=all_classes, columns=all_classes)
+       df.to_csv("confusion_matrix.csv", index=True, header=True)
 
 def main(args):
     """
